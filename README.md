@@ -5,4 +5,4 @@ lifting performed (type A, B, D, D, or E) as predicted by a row of data. A machi
 accurately carry out this prediction. 
 
 Of the two types of ML model investigated (decision tree or random forests) random forests was chosen as the most likely to give a correct
-prodiction.
+prediction.
