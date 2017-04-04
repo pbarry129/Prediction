@@ -1,0 +1,162 @@
+---
+title: "Exercise Analysis"
+author: "PB"
+date: "3 April 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+chooseCRANmirror(graphics=FALSE, ind=1)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Exercise Analysis ##
+
+## Introduction ##
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## The data ##
+
+The training data for this project are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## What you should submit ##
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+1. Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
+2. You should also apply your machine learning algorithm to the 20 test cases available in the test data above. Please submit your predictions in appropriate format to the programming assignment for automated grading. See the programming assignment for additional details.
+
+## Summary of the analysis carried out ##
+The following summarizes the steps used in the analysis of the data, from reading in the data from the supplied files to the final predication based on the test file.
+
+1.	Load the traing data set and clean this data by removing columns with too many NAs and by removing the start columns which do not contain explanatory variables 
+2.  Load and clean the testing data as in the previous step. Also exchange the final column for a column that replicates the 5 level factor variable in the training data. This is needed for the predication step
+3.	Partition the training data: use cross-validation based on a 70:30 split of the training data into a training set and a testing (validation) set
+4.	Apply a decision tree method to build a model and assess its accuracy
+5.	Apply random forest method to build a model and assess its accuracy
+6.	Check the most accurate model with the testing data set
+7.	Apply the model to estimate classes of 20 observations
+
+## Expected out-of-sample error ##
+
+There are various appropriate measures of error including MSE, RMSE, MAD, Sensitivity, Specificity, Accuracy and Concordance. Accuracy weights false positives and false negatives equally. We choose to use Accuracy (or more correctly, 1-Accuracy) as our measure of expected error. Thus we use this to measure out-of-sample error.
+
+## Set seed for reproducibility ##
+
+```{r }
+set.seed(33432)
+```
+
+## Load required packages
+
+```{r }
+
+if(!require(ggplot2))
+{install.packages("ggplot2");
+  library(ggplot2);
+  }
+
+if(!require(caret))
+{install.packages("caret");
+  library(caret);
+  }
+
+if(!require(randomForest))
+{install.packages("randomForest");
+  library(randomForest);
+  }
+
+if(!require(rpart))
+{install.packages("rpart");
+  library(rpart);
+  };
+
+if(!require(rpart.plot))
+{install.packages("rpart.plot");
+  library(rpart.plot);
+  }
+
+if(!require(rattle))
+{install.packages("rattle");
+  library(rattle);
+  }
+```
+
+## Load the data files and clean the data  ##
+```{r }
+Train<-read.csv("pml-training.csv", na.strings=c("NA", "#DIV/0!", ""))
+Test<-read.csv("pml-testing.csv", na.strings=c("NA", "#DIV/0!", ""))
+dim(Train)
+dim(Test)
+StartVar <- grep("name|timestamp|window|X", colnames(Train), value=F)
+Train<-Train[,-StartVar]
+Train<-Train[, colSums(is.na(Train))==0]
+```
+## Prepare the test file for prediction  ##
+We will want the Test file to match the Training file so we remove the "problem_id"" column and replace it with a "classe"" column with a 5 level factor. We also clean this data frame in the same manner as the training data frame.
+```{r }
+Test<-Test[,-160]
+Test["classe"]<-c("A", "B", "C","D","E")
+Test$classe<-factor(Test$classe)
+Test<-Test[,-StartVar]
+Test<-Test[, colSums(is.na(Test))==0]
+dim(Test)
+```
+## Cross-validation ##
+We split the Train data frame into a training set and a test (validation) set
+```{r }
+inTrain<-createDataPartition(y=Train$classe, p=0.75, list=FALSE)
+TrainTrain<-Train[inTrain,]
+TrainTest<- Train[-inTrain, ]
+dim(TrainTrain)
+dim(TrainTest)
+```
+## Exploratory analysis of the "classe" variable
+```{r }
+plot(TrainTrain$classe, col="yellow", main="Plot of levels of classe variable", xlab="classe", ylab="Frequency")
+```
+
+## Machine learning using decision trees ##
+
+```{r }
+model_dt<-rpart(classe~., data=TrainTrain, method="class")
+predict_dt<-predict(model_dt, TrainTest, type="class")
+confusionMatrix(predict_dt, TrainTest$classe)
+#fancyRpartPlot(model_dt)
+rpart.plot(model_dt)
+```
+
+As we can see, we achieve an accuracy of 76% with this method.
+
+## Machine learning using random forest ##
+```{r }
+model_rf<-randomForest(classe~., data=TrainTrain, method="class")
+predict_rf<-predict(model_rf, TrainTest, type="class")
+confusionMatrix(predict_rf, TrainTest$classe)
+```
+We achieve an accuracy of over 99% using random forests. We therefore choose this model for the final prediction.
+
+## Using the chosen model for prediction ##
+```{r }
+model_final<-randomForest(classe~., data=TrainTrain, method="class")
+predict_final<-predict(model_final, Test, type="class")
+predict_final
+```
+## Summary ##
+
+In this analysis of data relating to weight lifting exercises, the training data set of 19622 observations was divided into a set of 14718 observations used for training, and a set of 4904 observations that were used for internal validation of the training process. The training and prediction was based on a factor variable "classe" which classified performance on barbell lifts. It was required to predict on the basis of the machine learning algorithm chosen to predict the classifications based on 20 obervations in a "test" file. 
+
+Two machine learnning algorithms were tested, chosen to predict the required factor variable. These were decision trees and random forest. The decision tree method (rpart) was found to have an accuracy (assessed using the "confusionMatrix") of just 76%, while the random forest model had an accuracy of over 99%. Thus the random forest method was used to find the predictions based on the test data. 
+
+This reported the following. 
+
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+
+B A B A A E D B A A  B  C  B  A  E  E  A  B  B  B
+
+
